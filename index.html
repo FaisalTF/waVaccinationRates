@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Vaccination Rates in Wa</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+    <style>
+        h2,
+        h3 {
+            margin: 10px;
+            font-size: 18px;
+        }
+
+        h3 {
+            font-size: 16px;
+        }
+
+        p {
+            margin: 10px;
+        }
+
+        /**
+        * Create a position for the map
+        * on the page */
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /**
+        * Set rules for how the map overlays
+        * (information box and legend) will be displayed
+         on the page. */
+        .map-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            background: rgba(255, 255, 255, 0.8);
+            border-style: solid;
+            border-width: 1px;
+            border-color: rgba(0, 0, 0, 0.2);
+            margin-left: 20px;
+            font-family: Arial, sans-serif;
+            overflow: auto;
+            border-radius: 3px;
+        }
+
+        #features {
+            top: 0;
+            height: 140px;
+            margin-top: 20px;
+            width: 250px;
+        }
+
+        #legend {
+            padding: 10px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            line-height: 18px;
+            height: 210px;
+            margin-bottom: 40px;
+            width: 150px;
+        }
+
+        .legend-key {
+            display: inline-block;
+            border-radius: 20%;
+            width: 10px;
+            height: 10px;
+            margin-right: 5px;
+        }
+
+        .mapboxgl-canvas-container.mapboxgl-interactive,
+        .mapboxgl-ctrl-group button.mapboxgl-ctrl-compass {
+            cursor: unset;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class='map-overlay' id='features'>
+        <h2>Wa County Vaccinations (Per 10,0000)</h2>
+        <div id='text-escription'>
+            <p>Hover over a county!</p>
+        </div>
+    </div>
+    <div class='map-overlay' id='legend'></div>
+    <script>
+        // initialize basemmap
+        mapboxgl.accessToken =
+            'pk.eyJ1IjoiamFrb2J6aGFvIiwiYSI6ImNpcms2YWsyMzAwMmtmbG5icTFxZ3ZkdncifQ.P9MBej1xacybKcDN_jehvw'; // TODO: Needs replacing with mine
+        const map = new mapboxgl.Map({
+            container: 'map', // container ID
+            style: 'mapbox://styles/mapbox/dark-v10', // style URL
+            zoom: 6, // starting zoom
+            center: [-121, 47] // starting center
+        });
+
+        // load data and add as layer
+        async function geojsonFetch() {
+            let response = await fetch('assets/wa-covid-data-102521.geojson');
+            let countyData = await response.json();
+
+            map.on('load', function loadingData() {
+                map.addSource('countyData', {
+                    type: 'geojson',
+                    data: countyData
+                });
+
+                map.addLayer({
+                    'id': 'countyData-layer',
+                    'type': 'fill',
+                    'source': 'countyData',
+                    'paint': {
+                        'fill-color': [
+                            'step',
+                            ['get', 'fullyVaxPer10k'],
+                            '#A0EDFF',   // stop_output_0
+                            1000,          // stop_input_0
+                            '#76D9FE',   // stop_output_1
+                            2000,          // stop_input_1
+                            '#4CB2FE',   // stop_output_2
+                            3000,          // stop_input_2
+                            '#3C8DFD',   // stop_output_3
+                            4000,         // stop_input_3
+                            '#2A4EFC',   // stop_output_4
+                            5000,         // stop_input_4
+                            '#1C1AE3',   // stop_output_5
+                            6000,         // stop_input_3
+                            '#2600BD',   // stop_output_4
+                            7000,         // stop_input_4
+                            '#260080'   // stop_output_5
+                        ],
+                        'fill-outline-color': '#BBBBBB',
+                        'fill-opacity': 0.7,
+                    }
+                });
+
+                const layers = [
+                    'Less than 1k',
+                    '1k - 1.9k',
+                    '2k - 2.9k',
+                    '3k - 3.9k',
+                    '4k - 4.9k',
+                    '5k - 5.9k',
+                    '6k - 6.9k',
+                    '7k+'
+                ];
+                const colors = [
+                    '#A0EDFF70',
+                    '#76D9FE70',
+                    '#4CB2FE70',
+                    '#3C8DFD70',
+                    '#2A4EFC70',
+                    '#1C1AE370',
+                    '#2600BD70',
+                    '#26008070'
+                ];
+
+                // create legend
+                const legend = document.getElementById('legend');
+                legend.innerHTML = "<b>Vaccinated<br>(Per 10k)</b><br><br>";
+
+
+                layers.forEach((layer, i) => {
+                    const color = colors[i];
+                    const item = document.createElement('div');
+                    const key = document.createElement('span');
+                    key.className = 'legend-key';
+                    key.style.backgroundColor = color;
+
+                    const value = document.createElement('span');
+                    value.innerHTML = `${layer}`;
+                    item.appendChild(key);
+                    item.appendChild(value);
+                    legend.appendChild(item);
+                });
+            });
+
+            map.on('mousemove', ({point}) => {
+                const state = map.queryRenderedFeatures(point, {
+                    layers: ['countyData-layer']
+                });
+                document.getElementById('text-escription').innerHTML = state.length ?
+                    `<h3>${state[0].properties.name}</h3><p><strong><em>${state[0].properties.fullyVaxPer10k}</strong> Vaccinated Per 10k</em></p>` :
+                    `<p>Hover over a county!</p>`;
+            });
+        }
+
+        geojsonFetch();
+    </script>
+
+</body>
+
+</html>
